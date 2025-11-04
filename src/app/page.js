@@ -1,65 +1,54 @@
 import Image from "next/image";
+import { supabase } from "@/lib/supabaseClient";
+import Link from "next/link"; // <-- 1. ІМПОРТУЄМО LINK
 
-export default function Home() {
+export default async function HomePage() {
+  const { data: rooms, error } = await supabase.from("rooms").select("*");
+
+  if (error) {
+    console.error("Error fetching rooms:", error);
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <main className="container mx-auto p-8">
+      <h1 className="text-4xl font-bold mb-8">Наші Номери</h1>
+
+      {!rooms || rooms.length === 0 ? (
+        <p>Вибачте, наразі немає доступних номерів.</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {rooms.map((room) => (
+            // 2. ОБГОРТАЄМО КАРТКУ В <LINK>
+            <Link
+              href={`/rooms/${room.id}`} // Динамічне посилання
+              key={room.id}
+              className="border rounded-lg shadow-lg overflow-hidden block hover:shadow-xl transition-shadow"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              <div className="relative w-full h-48">
+                <Image
+                  src={room.image_url}
+                  alt={room.name}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+
+              <div className="p-4">
+                <h2 className="text-2xl font-semibold mb-2">{room.name}</h2>
+                <p className="text-gray-600 mb-4">{room.description}</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-xl font-bold">
+                    {room.price_per_night} грн / ніч
+                  </span>
+                  <span className="text-gray-700">
+                    до {room.max_guests} гостей
+                  </span>
+                </div>
+              </div>
+            </Link>
+          ))}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      )}
+    </main>
   );
 }
