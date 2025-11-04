@@ -17,15 +17,16 @@ export const metadata = {
   description: "Ihre gemütliche Pension...",
 };
 
-// МИ ПРИБРАЛИ 'modal' ЗВІДСИ
-export default function RootLayout({ children }) {
+// 1. ПОВЕРТАЄМО 'modal' В ПРОПСИ
+export default function RootLayout({ children, modal }) {
   return (
     <html lang="de" suppressHydrationWarning={true}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Header />
-        {children} {/* Залишаємо тільки children */}
+        {children} {/* Це наша звичайна сторінка */}
+        {modal} {/* 2. ПОВЕРТАЄМО СЛОТ ДЛЯ МОДАЛКИ */}
       </body>
     </html>
   );
