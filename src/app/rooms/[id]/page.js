@@ -1,8 +1,8 @@
 import { supabase } from "@/lib/supabaseClient";
 import Image from "next/image";
-import BookingForm from "@/components/BookingForm"; // Це вже є
+import BookingFormSimple from "@/components/BookingFormSimple";
 
-// Функція getRoom (залишається як була)
+// --- Funktion getRoom (bleibt gleich) ---
 async function getRoom(id) {
   if (!id) {
     console.error("getRoom (Full Page) called with undefined id");
@@ -21,49 +21,41 @@ async function getRoom(id) {
   return data;
 }
 
-// --- НОВА ФУНКЦІЯ ---
-// Завантажує всі бронювання для конкретного номера
+// --- Funktion getBookings (bleibt gleich) ---
 async function getBookings(roomId) {
-  // Форматуємо сьогоднішню дату для Supabase (YYYY-MM-DD)
   const today = new Date().toISOString().split("T")[0];
-
   const { data, error } = await supabase
     .from("bookings")
     .select("start_date, end_date")
-    .eq("room_id", roomId) // Тільки для цього номера
-    .gte("end_date", today); // Тільки майбутні бронювання
+    .eq("room_id", roomId)
+    .gte("end_date", today);
 
   if (error) {
     console.error("Error fetching bookings:", error);
-    return []; // Повертаємо порожній масив у разі помилки
+    return [];
   }
   return data;
 }
-// --- КІНЕЦЬ НОВОЇ ФУНКЦІЇ ---
 
 export default async function RoomPage(props) {
   const params = await props.params;
-
-  // 1. Отримуємо дані про номер (як і раніше)
   const room = await getRoom(params.id);
-
-  // 2. Отримуємо дані про бронювання
   const bookings = await getBookings(params.id);
 
   if (!room) {
-    return <p>Номер не знайдено.</p>;
+    return <p className="text-center p-8">Zimmer nicht gefunden.</p>;
   }
 
-  // Це UI повної сторінки
+  // UI der vollständigen Seite
   return (
     <main className="container mx-auto p-8">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-start">
-        {/* Ліва колонка (Інформація про номер) */}
+        {/* Linke Spalte (Info) */}
         <div className="md:col-span-2">
           <h1 className="text-4xl font-bold mb-4">{room.name}</h1>
           <div className="relative w-full h-96 mb-4">
             <Image
-              src={room.image_url}
+              src={room.image_url || "/placeholder.jpg"}
               alt={room.name}
               fill
               className="object-cover rounded-lg"
@@ -71,15 +63,36 @@ export default async function RoomPage(props) {
             />
           </div>
           <p className="text-lg text-gray-700 mb-4">{room.description}</p>
+
+          {/* --- NEUE PREISLOGIK HIER --- */}
           <div className="text-2xl font-bold">
-            {room.price_per_night} грн / ніч (до {room.max_guests} гостей)
+            {/* Prüfen, ob es ein 'Gästezimmer' ist */}
+            {room.room_type === "Einzelzimmer" ||
+            room.room_type === "Doppelzimmer" ? (
+              <span>
+                ab {(room.price_long_stay / 100).toFixed(2)} € / Nacht
+              </span>
+            ) : (
+              <span>{(room.price_long_stay / 100).toFixed(2)} € / Nacht</span>
+            )}
           </div>
+          {/* Zeige Kurzaufenthalt-Preis nur für 'Gästezimmer' */}
+          {(room.room_type === "Einzelzimmer" ||
+            room.room_type === "Doppelzimmer") && (
+            <div className="text-lg text-gray-600">
+              (1-2 Nächte: {(room.price_short_stay / 100).toFixed(2)} €)
+            </div>
+          )}
+          <div className="text-lg text-gray-600 mt-2">
+            bis zu {room.max_guests} Gäste
+          </div>
+          <p className="text-sm text-gray-500 mt-2">zzgl. Kurtaxe</p>
+          {/* --- ENDE PREISLOGIK --- */}
         </div>
 
-        {/* Права колонка (Форма Бронювання) */}
+        {/* Rechte Spalte (Formular) */}
         <div className="md:col-span-1">
-          {/* 3. ПЕРЕДАЄМО 'bookings' У ФОРМУ */}
-          <BookingForm room={room} bookings={bookings} />
+          <BookingFormSimple room={room} bookings={bookings} />
         </div>
       </div>
     </main>

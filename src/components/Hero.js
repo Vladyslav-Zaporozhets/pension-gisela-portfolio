@@ -5,7 +5,7 @@ export default function Hero() {
     <div className="relative h-[500px] bg-gray-800 text-white flex items-center justify-center">
       {/* (Ми додамо фонове зображення пізніше) */}
       <div className="text-center z-10">
-        <h1 className="text-5xl font-bold">Pension "Gisela"</h1>
+        <h1 className="text-5xl font-bold">Pension Gisela</h1>
         <p className="text-2xl mt-2">
           Willkommen in der „Fränkischen Schweiz“!
         </p>

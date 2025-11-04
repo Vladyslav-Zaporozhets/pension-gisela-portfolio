@@ -1,13 +1,12 @@
-// Це файл: src/app/@modal/(...)rooms/[id]/page.js
+// Dies ist: src/app/@modal/(...)rooms/[id]/page.js
 
-// Це СЕРВЕРНИЙ КОМПОНЕНТ. Це наше виправлення.
 import { supabase } from "@/lib/supabaseClient";
 import Image from "next/image";
-import BookingForm from "@/components/BookingForm";
-import ModalCloseButton from "@/components/ModalCloseButton"; // Ми створимо його
+import BookingFormSimple from "@/components/BookingFormSimple";
+import ModalCloseButton from "@/components/ModalCloseButton";
 import ModalShell from "@/components/ModalShell";
 
-// (Функції getRoom та getBookings - ідентичні тим, що у /rooms/[id]/page.js)
+// --- Funktionen getRoom & getBookings (bleiben gleich) ---
 async function getRoom(id) {
   if (!id) return null;
   const { data, error } = await supabase
@@ -38,7 +37,6 @@ async function getBookings(roomId) {
 }
 
 export default async function RoomModal(props) {
-  // Використовуємо 'await props.params' - це виправлення нашого старого багу
   const params = await props.params;
   const room = await getRoom(params.id);
   const bookings = await getBookings(params.id);
@@ -51,6 +49,7 @@ export default async function RoomModal(props) {
     <ModalShell>
       <ModalCloseButton />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 p-8 items-start">
+        {/* Linke Spalte (Info) */}
         <div className="md:col-span-2">
           <h1 className="text-3xl font-bold mb-4">{room.name}</h1>
           <div className="relative w-full h-80 mb-4">
@@ -61,15 +60,35 @@ export default async function RoomModal(props) {
               className="object-cover rounded-lg"
             />
           </div>
-          {/* Використовуємо ДОВГИЙ опис з бази */}
           <p className="text-gray-700 mb-4">{room.description}</p>
+
+          {/* --- NEUE PREISLOGIK HIER (Modal-Version) --- */}
           <div className="text-xl font-bold">
-            ab {room.price_long_stay / 100} € / Nacht
+            {room.room_type === "Einzelzimmer" ||
+            room.room_type === "Doppelzimmer" ? (
+              <span>
+                ab {(room.price_long_stay / 100).toFixed(2)} € / Nacht
+              </span>
+            ) : (
+              <span>{(room.price_long_stay / 100).toFixed(2)} € / Nacht</span>
+            )}
           </div>
+          {(room.room_type === "Einzelzimmer" ||
+            room.room_type === "Doppelzimmer") && (
+            <div className="text-md text-gray-600">
+              (1-2 Nächte: {(room.price_short_stay / 100).toFixed(2)} €)
+            </div>
+          )}
+          <div className="text-md text-gray-600 mt-2">
+            bis zu {room.max_guests} Gäste
+          </div>
+          <p className="text-sm text-gray-500 mt-2">zzgl. Kurtaxe</p>
+          {/* --- ENDE PREISLOGIK --- */}
         </div>
+
+        {/* Rechte Spalte (Formular) */}
         <div className="md:col-span-1">
-          {/* Передаємо дані у форму */}
-          <BookingForm room={room} bookings={bookings} />
+          <BookingFormSimple room={room} bookings={bookings} />
         </div>
       </div>
     </ModalShell>

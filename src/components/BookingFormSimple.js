@@ -1,7 +1,8 @@
+// Це файл: src/components/BookingFormSimple.js
+
 "use client";
 
 import { useState, useMemo } from "react";
-// 1. Імпортуємо 'registerLocale' та німецьку локаль
 import { registerLocale } from "react-datepicker";
 import { de } from "date-fns/locale/de";
 import ReactDatePicker from "react-datepicker";
@@ -14,19 +15,22 @@ import {
   format,
 } from "date-fns";
 import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 
-// 2. Реєструємо німецьку локаль для календаря
 registerLocale("de", de);
 
-export default function BookingForm({ room, bookings }) {
+export default function BookingFormSimple({ room, bookings }) {
+  const router = useRouter();
+
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
 
-  // 3. Додаємо state для телефону
+  // Спрощена форма:
+  const [numAdults, setNumAdults] = useState(1);
+  const [numChildren, setNumChildren] = useState(0);
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
-  const [guestPhone, setGuestPhone] = useState(""); // <-- НОВЕ ПОЛЕ
-  const [numGuests, setNumGuests] = useState(1);
+  const [guestPhone, setGuestPhone] = useState(""); // Телефон залишаємо
 
   const [status, setStatus] = useState("");
 
@@ -41,6 +45,19 @@ export default function BookingForm({ room, bookings }) {
     return dates;
   }, [bookings]);
 
+  const { numNights, totalPrice } = useMemo(() => {
+    if (!startDate || !endDate) {
+      return { numNights: 0, totalPrice: 0 };
+    }
+    const nights = differenceInCalendarDays(endDate, startDate);
+    if (nights <= 0) {
+      return { numNights: 0, totalPrice: 0 };
+    }
+    const pricePerNight =
+      nights <= 2 ? room.price_short_stay : room.price_long_stay;
+    return { numNights: nights, totalPrice: nights * pricePerNight };
+  }, [startDate, endDate, room.price_short_stay, room.price_long_stay]);
+
   const handleDateChange = (dates) => {
     const [start, end] = dates;
     setStartDate(start);
@@ -52,57 +69,48 @@ export default function BookingForm({ room, bookings }) {
     e.preventDefault();
     setStatus("submitting");
 
-    // ----- A. Валідація -----
-    if (!startDate || !endDate) {
-      alert("Bitte wählen Sie An- und Abreisedatum."); // Будь ласка, оберіть дати...
+    // ----- Валідація (спрощена) -----
+    if (!startDate || !endDate || numNights <= 0) {
+      alert("Bitte wählen Sie gültige Reisedaten.");
       setStatus("");
       return;
     }
     if (!guestName || !guestEmail) {
-      alert("Bitte geben Sie Ihren Namen und Ihre E-Mail-Adresse ein."); // Введіть ім'я та email
+      alert("Bitte füllen Sie alle erforderlichen Felder aus (*).");
       setStatus("");
       return;
     }
-
-    // 4. Нова валідація Email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(guestEmail)) {
-      alert("Bitte geben Sie eine gültige E-Mail-Adresse ein."); // Введіть коректний email
+      alert("Bitte geben Sie eine gültige E-Mail-Adresse ein.");
       setStatus("");
       return;
     }
-
-    if (numGuests > room.max_guests) {
+    if (numAdults + numChildren > room.max_guests) {
       alert(
         `Die maximale Gästeanzahl für dieses Zimmer beträgt: ${room.max_guests}`
-      ); // Макс. гостей...
+      );
       setStatus("");
       return;
     }
 
-    // ----- B. Розрахунок -----
-    const numNights = differenceInCalendarDays(endDate, startDate);
-    if (numNights <= 0) {
-      alert("Das Abreisedatum muss nach dem Anreisedatum liegen."); // Дата виїзду...
-      setStatus("");
-      return;
-    }
-    const totalPrice = numNights * room.price_per_night;
-
-    // ----- C. Створення об'єкту для Supabase -----
+    // ----- Об'єкт для Supabase (спрощений) -----
     const newBooking = {
       room_id: room.id,
       start_date: format(startDate, "yyyy-MM-dd"),
       end_date: format(endDate, "yyyy-MM-dd"),
+      num_adults: numAdults,
+      num_children: numChildren,
       guest_name: guestName,
       guest_email: guestEmail,
-      guest_phone: guestPhone, // <-- 5. Додаємо телефон в об'єкт
-      num_guests: numGuests,
+      guest_phone: guestPhone,
+      // Поля адреси просто залишаються 'null'
       total_price: totalPrice,
       status: "confirmed",
+      kurtaxe_price: 0,
     };
 
-    // ----- D. Відправка в Supabase -----
+    // ----- Відправка -----
     const { error } = await supabase.from("bookings").insert(newBooking);
 
     if (error) {
@@ -110,17 +118,23 @@ export default function BookingForm({ room, bookings }) {
       setStatus("error");
     } else {
       setStatus("success");
+      setTimeout(() => {
+        // Закриваємо модалку, повернувшись назад
+        router.back();
+        // Оновлюємо головну сторінку, щоб вона завантажила нові бронювання
+        router.refresh();
+      }, 2000);
     }
   };
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-gray-100 py-10 px-6 rounded-lg shadow-inner"
+      className="bg-gray-100 py-8 px-6 rounded-lg shadow-inner"
     >
-      <h2 className="text-2xl font-bold mb-4 text-center">Zimmer buchen</h2>
+      <h2 className="text-2xl font-bold mb-4 text-center">Schnellbuchung</h2>
 
-      {/* --- Календар (тепер німецькою) --- */}
+      {/* --- Календар --- */}
       <div className="flex justify-center mb-4">
         <ReactDatePicker
           selected={startDate}
@@ -131,18 +145,55 @@ export default function BookingForm({ room, bookings }) {
           selectsRange
           inline
           excludeDates={disabledDates}
-          locale="de" // <-- 6. Вмикаємо німецьку мову
+          locale="de"
         />
       </div>
 
-      {/* --- 7. Нові поля форми (німецькою) --- */}
+      {/* --- Спрощені Поля --- */}
       <div className="space-y-4 mb-6">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label
+              htmlFor="numAdults"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Erwachsene *
+            </label>
+            <input
+              type="number"
+              id="numAdults"
+              value={numAdults}
+              onChange={(e) => setNumAdults(parseInt(e.target.value))}
+              min="1"
+              max={room.max_guests}
+              className="w-full p-2 border border-gray-300 rounded-md mt-1"
+              required
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="numChildren"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Kinder
+            </label>
+            <input
+              type="number"
+              id="numChildren"
+              value={numChildren}
+              onChange={(e) => setNumChildren(parseInt(e.target.value))}
+              min="0"
+              max={room.max_guests - numAdults}
+              className="w-full p-2 border border-gray-300 rounded-md mt-1"
+            />
+          </div>
+        </div>
         <div>
           <label
             htmlFor="guestName"
             className="block text-sm font-medium text-gray-700"
           >
-            Name
+            Name *
           </label>
           <input
             type="text"
@@ -158,7 +209,7 @@ export default function BookingForm({ room, bookings }) {
             htmlFor="guestEmail"
             className="block text-sm font-medium text-gray-700"
           >
-            E-Mail
+            E-Mail *
           </label>
           <input
             type="email"
@@ -169,13 +220,12 @@ export default function BookingForm({ room, bookings }) {
             required
           />
         </div>
-        {/* 8. Нове поле "Телефон" */}
         <div>
           <label
             htmlFor="guestPhone"
             className="block text-sm font-medium text-gray-700"
           >
-            Telefon (Optional)
+            Telefon *
           </label>
           <input
             type="tel"
@@ -183,29 +233,26 @@ export default function BookingForm({ room, bookings }) {
             value={guestPhone}
             onChange={(e) => setGuestPhone(e.target.value)}
             className="w-full p-2 border border-gray-300 rounded-md mt-1"
-          />
-        </div>
-        <div>
-          <label
-            htmlFor="numGuests"
-            className="block text-sm font-medium text-gray-700"
-          >
-            Anzahl der Gäste
-          </label>
-          <input
-            type="number"
-            id="numGuests"
-            value={numGuests}
-            onChange={(e) => setNumGuests(parseInt(e.target.value, 10))}
-            min="1"
-            max={room.max_guests}
-            className="w-full p-2 border border-gray-300 rounded-md mt-1"
             required
           />
         </div>
       </div>
 
-      {/* --- 9. Кнопка та Повідомлення (німецькою) --- */}
+      {/* --- Розрахунок ціни (без змін) --- */}
+      {numNights > 0 && (
+        <div className="bg-white p-4 rounded-md mb-6 text-center">
+          <p className="text-lg font-semibold">Gesamtpreis:</p>
+          <p className="text-2xl font-bold">
+            {(totalPrice / 100).toFixed(2)} €
+          </p>
+          <p className="text-sm text-gray-600">
+            ({numNights} {numNights > 1 ? "Nächte" : "Nacht"} à{" "}
+            {(totalPrice / numNights / 100).toFixed(2)} €)
+          </p>
+        </div>
+      )}
+
+      {/* --- Кнопка та Повідомлення --- */}
       <div className="text-center">
         <button
           type="submit"
@@ -217,13 +264,11 @@ export default function BookingForm({ room, bookings }) {
 
         {status === "success" && (
           <p className="text-green-600 mt-4">
-            Wunderbar! Ihr Zimmer wurde erfolgreich gebucht.
+            Wunderbar! Ihr Zimmer wurde gebucht.
           </p>
         )}
         {status === "error" && (
-          <p className="text-red-600 mt-4">
-            Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.
-          </p>
+          <p className="text-red-600 mt-4">Ein Fehler ist aufgetreten.</p>
         )}
       </div>
     </form>
